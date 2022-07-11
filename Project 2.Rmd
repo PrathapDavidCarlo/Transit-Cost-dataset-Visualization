@@ -1,0 +1,1119 @@
+---
+title: "PROJECT 2 - TRANSIT COST"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+Name and ID of the Presenters:
+</br>
+
+1) **Anjana Padikkal Veetil**
+   **ID- 0780343**
+
+2) **Saharsh Sinha**
+    **ID- 0783417**
+
+3) **Rohit Rohit**
+    **ID- 0773987**
+
+4) **Prathap David Carlo**
+    **ID- 0787017**
+    
+5) **Rahul Dalal**
+    **ID- 0780440**    
+
+</br>
+**Group Number: 21** 
+</br>
+
+
+## Acedmic Integrity
+
+We, **Prathap, Saharsh, Anjana, Rohit,** and **Rahul** , hereby state that 
+we have not communicated with or gained information in any way from any person or resource that 
+would violate the College’s academic integrity policies, and that all work presented is our own. </br>
+In addition, we also agree not to share our work in any way, before or after submission, that would violate 
+the College’s academic integrity policies.
+
+
+
+</br>
+
+Documentation of the data sets:
+
+
+Attribution of the owner/creator of the data
+**Data owner**
+https://github.com/jthomasmock
+ 
+
+Links to the data 
+Get the data here
+https://github.com/rfordatascience/tidytuesday/blob/master/data/2021/2021-01-05/readme.md
+
+
+
+
+**Notes on the data:**
+Costs include all construction and construction-related expenditures, but not rolling stock or sales taxes. In some cases, rolling stock costs are included in the headline numbers, and we have tried to subtract them whenever possible; in some remaining cases, it was not possible, and we note that the costs include the equipment.
+
+*	Costs are adjusted for purchasing power parity (PPP), based on the midpoint of construction. This adjustment is imperfect in countries with rapid changes in the PPP rate due to high inflation, typically in the developing world. Of note, we have not adjusted for inflation so far; since all costs are converted to US dollars, you can inflation-adjust using American inflation rates.
+*	The length of a project includes length in service, excluding non-revenue tracks toward railyards and tail tracks; for example, our length for the 7 extensions in New York starts at Times Square and ends at 34th Street and 11th Avenue, even though storage tracks extend south to 26th Street.
+*	The source column describes what type of source we used. Often, we used different sources for length and cost, since costs can run over and therefore, we’ve attempted to use the most recent sources possible, whereas length is fixed for the duration of the project.
+1.	Wiki means Wikipedia; it is not an acceptable source for costs, only length and opening year.
+2.	Measured means we measured the length (including tunnel length) on satellite photos or mapping software like Google Earth or Open Railway Map.
+3.	Media means general media.
+4.	Trade means trade publications, like Railway Gazette and International Rail Journal.
+5.	Plan means official plans, whether by the relevant agency, the state, the World Bank, etc.
+
+### About Transit-infrastructure project data set:
+Transit-infrastructure project database that spans more than 50 countries and totals more than 11,000 km of urban rail built since the late 1990s. The goal of this dataset is to figure out how to deliver more high-capacity transit projects for a fraction of the cost in countries like the United States.
+
+
+
+#### Loading Libraries and Dataset
+
+
+
+```{r}
+# Loading Libraries and Dataset
+library(tidyverse)
+library(tidytuesdayR)
+library(countrycode)
+library(gridExtra)
+transit_cost <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-05/transit_cost.csv')
+
+theme_set(theme_light())
+```
+
+
+#### Cleaning code-Provided By the Creators. 
+```{r}
+transit_cost <-transit_cost %>%
+  mutate(start_year = as.integer(start_year),
+         end_year = as.integer(end_year),
+         tunnel_per = parse_number(tunnel_per)/100,
+         real_cost = as.numeric(real_cost))
+
+raw_df <- transit_cost %>% 
+  janitor::clean_names() %>% 
+  filter(real_cost != "MAX")
+
+raw_df %>% 
+  arrange(desc(cost_km_millions))
+
+raw_df <- raw_df %>% 
+  mutate(continent=raw_df$continent <- countrycode(sourcevar = raw_df[["country"]],
+                            origin = "iso2c",
+                            destination = "continent"))
+
+raw_df = raw_df %>%
+  mutate(country=ifelse(is.na(country),"United Kingdom",country)) %>%
+  mutate(continent=ifelse(is.na(continent),"Europe",continent))
+```
+
+
+
+
+
+
+# Univarite Analysis
+
+### Numeric Univariate Analysis
+
+
+**Create an appropriate plot to visualize the distribution of this variable.**
+```{r}
+
+proj_length <- ggplot(raw_df, aes(length))+
+  geom_histogram(color = 'black',fill = 'pink')+
+  theme_bw()
+
+proj_length+geom_vline(aes(xintercept=median(length)),linetype="dashed", size=1, colour="blue")+
+  scale_x_continuous(n.breaks = 20)+
+  labs(x = 'Number of projects', y = "Length of Project ", title = 'Number of Projects of a particular Length')
+
+
+```
+
+
+ 
+
+**Consider any outliers present in the data. If present, specify the criteria used to identify them and provide a logical explanation for how you handled them.** </br>
+For visualizing Transit length distribution, we have plotted Histogram.In which x-axis represents the length of the transit length and y-axis shows number of projects of particular Transit length range. </br>
+
+```{r}
+raw_df %>% filter(length > 100) %>% count(country)
+```
+
+  It can be clearly seen that there are some observations which are completely different from others. In other words, Project whose length are more than 100 are very few and different from others. Which we have consider here as **Outlier**.
+  </br>
+</br> 
+
+
+**Describe the shape and skewness of the distribution.**
+
+In the distribution, there is only one peak so we can say that this is **Unimodal Distribution** and the symmetry of this is **right skewed**.
+
+
+
+**Based on your answer to the previous question, decide if it is appropriate to apply a transformation to your data. If no, explain why not. If yes, name the transformation applied and visualize the transformed distribution.**
+
+
+```{r}
+p1 <- proj_length + scale_x_log10()
+p2 <- proj_length+ scale_x_sqrt()
+grid.arrange(p1,p2, ncol = 1)
+```
+
+
+As we can see from the above plot when we do transformation, our distribution looks like normally distributed, so it would be really helpful, if we do transformation.
+
+</br>
+**Choose and calculate an appropriate measure of central tendency.**
+
+```{r}
+summary(raw_df$length)
+```
+We took median as a measure of central tendency because it is not affected by outliers.
+</br>
+
+
+** Explain why you chose this as your measure of central tendency. Provide supporting evidence for your choice.**
+
+
+As we can see from the graph, our data is right skewed. There are some outlines in the data set. We have choosen **median** as a appropriate measure of central tendancy because it is not affected by extreme values where as mean depend on all the observations and biased towards the outliers. 
+
+
+**Choose and calculate a measure of spread that is appropriate for your chosen measure of central tendency. Explain why you chose this as your measure of spread. **
+
+```{r}
+sd(raw_df$length)
+IQR(raw_df$length)
+range(raw_df$length)
+
+```
+
+Since the data is right skewed, and there are very few number of outliers, we can use **InterQuartile Range(IQR)** as a measure of spread.
+
+
+
+
+</br>
+</br>
+
+</br>
+
+
+**Create an appropriate plot to visualize the distribution of this variable. **
+```{r}
+sts <-ggplot(raw_df,aes(tunnel))+
+  geom_histogram(aes(y = ..density..), color = 'black', fill = 'white')+
+  geom_density(alpha=.2, fill="coral3")
+ 
+sts+geom_vline(aes(xintercept=median(stations, na.rm  = TRUE)),linetype="dashed", size=1, colour="red")+
+  labs(title = 'Number of tunnels')
+```
+
+
+**If present, specify the criteria used to identify them and provide a logical explanation for how you handled them.**
+
+
+The visualization above represents the length of line completed in km and we have plotted a Histogram for it. The x-axis has the number of completed tunnels with length and y-axis which has number of tunnels.
+
+
+
+```{r}
+raw_df %>% filter(tunnel > 100) %>% count(country)
+
+```
+
+As we see that there are two observations which are that very high compared to other observations. Tunnels that are complete but their length is more than 100 are only two. And we identified them as outliers. The reasaon to take these as outliers is while computing the cost with respect to tunnel length if we have dramatic high lengths it would give a wrong analysis.
+
+For handling these outliers we have located the max outlier value to 160 and we can drop it 
+
+```{r}
+outliers_value = boxplot(raw_df$tunnel, plot=FALSE)$out
+max(outliers_value)
+```
+
+
+
+**Describe the shape and skewness of the distribution.**
+
+In the distribution above there are is only one peak so it iss a **Unimodal Distribution** and we skeweness to be a **right skewed**.
+
+
+
+**Based on your answer to the previous question, decide if it is appropriate to apply a transformation to your data. If no, explain why not. If yes, name the transformation applied and visualize the transformed distribution. **
+
+```{r}
+p1a <- sts+ scale_x_log10()
+p2a<- sts +scale_x_sqrt()
+
+grid.arrange( p1a, p2a , ncol= 1)
+```
+
+
+From the above plots we see that when we apply transformation the distribution transforms to a **normal distribution** and we can say it would be helpful for analysis if we applied this transformation.
+
+
+
+**Choose and calculate an appropriate measure of central tendency. **
+
+
+```{r}
+summary(raw_df$tunnel)
+```
+
+Since the median is not affected by external values, we have taken **Median** as measure of central tendency.
+
+
+**Explain why you chose this as your measure of central tendency. Provide supporting evidence for your choice. **
+
+From the plot we saw that the data when distributed is right skewed with few outliers.
+We have selected median as measure of central tendency as median is not affected by the high outlier values. In contrast we know mean is calculated on all the observations and it tends to give a wrong mean when there are outliers.
+
+
+**Choose and calculate a measure of spread that is appropriate for your chosen measure of central tendency. Explain why you chose this as your measure of spread.** 
+
+
+Standard Deviation
+```{r}
+sd(raw_df$tunnel , na.rm = TRUE)
+```
+
+Inter quartile range
+```{r}
+IQR(raw_df$tunnel, na.rm = TRUE)
+```
+
+Range
+```{r}
+range(raw_df$tunnel,na.rm = TRUE)
+```
+
+
+From the data we noted that the data is **right skewed**, hence we are using **IQR( InterQuartile Range)** as a measure of spread
+
+
+
+
+```{r}
+raw_df1 <- na.omit(raw_df,cost_km_millions)
+numerical <- raw_df1 %>% ggplot(aes(cost_km_millions)) +geom_density(col="black")+geom_histogram(aes(y=..density..),alpha =1/3,colour="black",fill ="wheat1")+geom_vline(aes(xintercept =median(cost_km_millions)),colour = "purple")+labs(title = 'Distribution of cost per kilometers', x = 'Cost perkilometer of the project(in USD Millions', y = 'Density')
+numerical
+```
+
+**Consider any outliers present in the data. If present, specify the criteria used to identify them and provide a logical explanation for how you handled them.**
+
+For visualizing distribution of cost/kilometer of the projects,we have plotted Histogram in which x-axis represents the cost per kilometer incurred for different projects. y-axis shows number of projects of particular Transit cost-per_kilometer range.
+
+```{r}
+a<-raw_df %>% filter( cost_km_millions > 1000) %>% summarise(lines=n())
+a
+```
+
+
+**Describe the shape and skewness of the distribution.** </br>
+In the distribution, there is only one peak so we can say that this is **Unimodal Distribution** and the symmetry of this is **Right Skewed**.
+
+**Based on your answer to the previous question, decide if it is appropriate to apply a transformation to your data. If no, explain why not. If yes, name the transformation applied and visualize the transformed distribution.**
+```{r}
+numerical <- raw_df1 %>% ggplot(aes(cost_km_millions)) +geom_density(col ="red")+geom_histogram(aes(y=..density..),alpha =1/3,colour="black",fill = "wheat1")+geom_vline(aes(xintercept = median(cost_km_millions)),colour = "purple") +labs(title = 'Distribution of cost per kilometers', x = 'Cost per kilometer of the project(in USD Millions)', y = 'Density') +scale_x_log10()
+numerical
+```
+
+ from the transformation, we can clear see that distribution of kilometer cost is uniform from the peak. that means it is a **symmetric distribution**.
+ 
+
+**Explain why you chose this as your measure of central tendency. Provide supporting evidence for your choice.** </br>
+As we can see from the graph, our data is symmetric only after transformation. There are some outliers before transformation in the data set. We have choosen **median** as a appropriate measure of central tendency because it is not affected by extreme values where as mean depend on all the observations and biased towards the outliers.
+
+**Choose and calculate a measure of spread that is appropriate for your chosen measure of central tendency. Explain why you chose this as your measure of spread.**
+
+```{r}
+sd(raw_df1$cost_km_millions)
+
+IQR(raw_df1$cost_km_millions)
+
+range(raw_df1$cost_km_millions)
+```
+
+
+Since the data is *right-skewed*, and there are very few number of outliers, we can use *InterQuartile Range(IQR)* as a measure of spread.
+
+
+
+
+**Create an appropriate plot to visualize the distribution of this variable. **
+
+```{r}
+end_year <- ggplot(raw_df,aes(end_year))+
+geom_histogram(aes(y = ..density..), color = 'black', fill = 'white')+
+geom_density(alpha=.2, fill="red")+
+labs(title = 'Projects completed in the particular year')
+end_year
+```
+
+**Consider any outliers present in the data. If present, specify the criteria used to identify them and provide a logical explanation for how you handled them. ** </br>
+
+To understand the density of end year of the project a histogram has been plotted. We can see that before 1995 there are two outlayers. To find out the details of those outlayers, we used filtter on end_year.
+
+```{r}
+
+raw_df %>% filter(end_year < 1995 )
+```
+
+
+**Describe the shape and skewness of the distribution**</br>
+From the plot we can see that there is only one peak so the plot is a unimodel plot and the data is skewed towards left side there for it is a left skewed graph.
+
+**Based on your answer to the previous question, decide if it is appropriate to apply a transformation to your data. If no, explain why not. If yes, name the transformation applied and visualize the transformed distribution.**
+
+```{r}
+log_plot <- end_year+ scale_x_log10()
+sqr_plot<- end_year +scale_x_sqrt()
+
+
+grid.arrange( log_plot, sqr_plot , ncol= 1)
+```
+
+
+
+As we can see there are no difference in log_plot and sqr_plot. So, we can say that transformations are not required.
+
+
+</br>
+**Choose and calculate an appropriate measure of central tendency. **
+
+```{r}
+summary(raw_df$length)
+```
+Median is taken as the central tendency as there are outliers for end_year.
+Median=15.70
+
+
+**Explain why you chose this as your measure of central tendency. Provide supporting evidence for your choice. **
+The graph is left skewed and there are few outlines in the data. We have chosen **median** as a measure of central tendency as it is not affected by the value of outliers where as mean depend on all the values and will be moved towards the outliers.
+
+**Choose and calculate a measure of spread that is appropriate for your chosen measure of central tendency. Explain why you chose this as your measure of spread. **
+```{r}
+sd(raw_df$end_year,na.rm=TRUE)
+IQR(raw_df$end_year,na.rm=TRUE)
+range(raw_df$end_year,na.rm=TRUE)
+```
+Plot is **left skewed**, and there are few outliers, we can use **InterQuartile Range(IQR**) as a measure of spread.
+
+
+
+
+
+```{r}
+Proj_year<- ggplot(drop_na(transit_cost)) +
+ geom_histogram(mapping = aes(year), color='black',fill="brown") +
+  labs(title = "No. of projects in different year", x="year",y="Number of projects")
+Proj_year
+```
+
+**Consider any outliers present in the data. If present, specify the criteria used to identify them and provide a logical explanation for how you handled them.** </br>
+For visualizing Transit project year distribution, we have plotted Histogram.In which the x-axis represents the number of years and on the y-axis number of projects has been plotted.
+
+
+```{r}
+raw_df %>% filter(year < 1995) %>% count(country)
+```
+ 
+ 
+ It can be clearly seen that there are few observations which are completely different from others. In other words, Project which started before 1995 are only two, which we can consider as **Outlier**.
+ 
+**Describe the shape and skewness of the distribution.**
+
+In the distribution, there is only one peak so we can say that this is **Unimodal Distribution** and the symmetry of this is **left skewed**.
+
+**Based on your answer to the previous question, decide if it is appropriate to apply a transformation to your data. If no, explain why not. If yes, name the transformation applied and visualize the transformed distribution.**
+
+```{r}
+p1 <- Proj_year+ scale_x_log10()
+
+p2 <- Proj_year+ scale_x_sqrt()
+
+grid.arrange(p1,p2, ncol = 1)
+```
+
+</br>
+**Choose and calculate an appropriate measure of central tendency.**
+
+```{r}
+summary(raw_df$year)
+```
+We took **median** as a measure of central tendency because it is not affected by outliers.
+</br>
+
+**Explain why you chose this as your measure of central tendency. Provide supporting evidence for your choice.**
+
+As we can see from the graph, our data is **left skewed**. There are some outlines in the data set. We have chosen **median** as a appropriate measure of central tendency because it is not affected by extreme values where as mean depend on all the observations and biased towards the outliers. 
+
+**Choose and calculate a measure of spread that is appropriate for your chosen measure of central tendency. Explain why you chose this as your measure of spread.**
+
+```{r}
+sd(raw_df$year)
+IQR(raw_df$year)
+range(raw_df$year)
+
+```
+
+Since the data is left skewed, and there are very few number of outliers, we can use **InterQuartile Range(IQR)** as a measure of spread.
+
+
+
+
+
+
+
+
+
+
+
+### CATEGORICAL
+
+
+```{r}
+raw_df %>%  count(country, sort = TRUE )
+  
+```
+
+
+**Create an appropriate plot to visualize the distribution of this variable. **
+```{r}
+raw_df %>%  filter(country == 'CN') %>% 
+  ggplot()+
+  geom_bar(aes(city), color = 'black', fill = 'lavender')+
+  scale_y_continuous(n.breaks = 10)+
+  coord_flip()+
+  labs(x = "Number of Projects", y = "Chinese cities", title = 'Number of Projects in the Chinese cities')
+```
+
+**Create an appropriate plot to visualize the distribution of proportions for this variable.**
+
+
+```{r}
+Proportion_city <- raw_df %>%  filter(country == 'CN') %>% group_by(city) %>% summarise(count1 = n()) %>%  mutate(prp = count1/sum(count1))
+
+```
+
+Sum of proportions
+
+```{r}
+ Proportion_city %>% summarise(Sum_prp = sum(prp))
+
+```
+
+
+```{r}
+
+raw_df %>%  filter(country == 'CN') %>% 
+  ggplot()+
+  geom_bar(aes(x = city, y =..prop..,group = 1), color = 'black', fill = 'dark green')+
+  coord_flip()+
+  labs(y = "Proportion", x = "Chinese cities", title = 'Proportion of total number of projects in Chinese cities')
+
+```
+
+
+**Discuss any unusual observations for this variable?**
+
+
+The unusual observation we see is that there are only three cities in which maximum number of projects are going on. and in some cities there are very few projects for example, in Lanzhou there are only two projects.
+
+
+
+**Discuss if there are too few/too many unique values?**
+
+We do not have much unique values except some cities. The proportions of **Shanghai**, **Beijing**, and **Wuhan** is significant higher in all 28 Chinese cities. The figures are 29, 27 and 21 respectively. Whereas, we can see in **Fuzhou**, **Lanzhou**, **Taiyuan**, and **Wenzhou** cities, Number of projects are just few, around 3,2,2, and 2 respecitvely. Except this 7 cities, all cities projects varies from 3 to 15.      
+</br>
+The total sum of the proportion is 1. 
+
+
+
+
+**Create an appropriate plot to visualize the distribution of this variable. **
+```{r}
+raw_df %>% 
+  ggplot()+
+  geom_bar(aes(x = continent), color = 'black', fill = 'bisque1')+
+ 
+  labs(y = "Count", x = "Continents", title = 'Project count for Continents')
+```
+
+
+**Create an appropriate plot to visualize the distribution of counts for this variable.**
+
+```{r}
+raw_df %>%
+ggplot()+
+geom_bar(aes(x = continent), color = 'black', fill = 'bisque1')+
+labs(y = "Count", x = "Continents", title = 'Project count for Continents')
+```
+
+
+**Create an appropriate plot to visualize the distribution of proportions for this variable.**
+
+```{r}
+raw_df %>%
+ggplot()+
+geom_bar(aes(x = continent, y =..prop..,group = 1), color = 'black', fill = 'bisque1')+
+labs(y = "Proportion", x = "Continents", title = 'Proportion of total number of projects in Continents')
+```
+
+```{r}
+Proportion_con <- raw_df %>% group_by(continent) %>% summarise(count1 = n()) %>% mutate(prp = count1/sum(count1))
+
+Proportion_con
+```
+
+
+```{r}
+Proportion_con %>% summarise(Sum_prp = sum(prp))
+```
+
+
+**Discuss any unusual observations for this variable**
+
+The unusual observation we see is that the proportion os projects in Asia is highest, however
+from our analysis we know that the average cost/km or project total cost is highest in Americas(US). We can say that the project costs in Asian continents are far low even though high number of projects.</br>
+
+
+**Discuss if there are too few/too many unique values**
+From our analysis we see there are too few values in Oceania and African continent but significantly high values in Asia.
+
+
+
+
+
+**Create an appropriate plot to visualize the distribution of this variable. **
+
+```{r}
+countries_cat <- raw_df1 %>% filter(end_year>21 & length>20) %>% ggplot(aes(x=country,fill=country))+geom_bar()+labs(title ='country Distribution by project completion after 2021 & length>20KM', x = 'countires', y = 'count', caption = "Data source: Transit_Cost")+coord_flip()+ theme_bw()+theme(axis.text.y = element_text(size = 5))
+countries_cat
+```
+
+**Create an appropriate plot to visualize the distribution of proportions for this variable.** </br>
+This plot well explains the distribution of the proportion of the variable country for those projects which may complete after 2021 and those projects with length greater than 15 km. China has the highest number of projects which counted around 90 . second highest projects are happening in India with around 15.
+
+**Discuss any unusual observations for this variable** </br>
+There are no usual data found for this variable. we can observe that china has the maximum number of projects to complete after 2021 and no other countries in the world. that means
+
+**Discuss if there are too few/too many unique values** </br>
+We have taken subset of the data. However, there are no unique values found in the data.
+
+
+
+
+
+  
+**Create an appropriate plot to visualize the distribution of this variable. **
+
+
+```{r}
+ggplot(raw_df,aes(start_year))+
+geom_histogram(aes(y = ..density..), color = 'black', fill = 'white')+
+geom_density(alpha=.2, fill="sky blue")+
+  labs(title = 'Number of projects started in a particular year')
+```
+
+**Create an appropriate plot to visualize the distribution of proportions for this variable.**
+
+
+```{r}
+Proportion_startyear  <- raw_df%>% group_by(start_year) %>% summarise(count1 = n()) %>%  mutate(prp = count1/sum(count1))
+
+```
+
+Sum of proportions
+
+```{r}
+ Proportion_startyear %>% summarise(Sum_prp = sum(prp))
+
+```
+
+
+```{r}
+
+raw_df %>% 
+  ggplot()+
+  geom_bar(aes(x = start_year))+
+  labs(title = 'Number of projects start in a particular year')
+
+```
+
+**Discuss any unusual observations for this variable** </br>
+
+We do not find any unusual observations , however we notice that the maximum number of projects have been around 2015.
+
+**Discuss if there are too few/too many unique values** </br>
+
+From the plot we see that the unique values lies in 1980 and the most frequent values lie from 2010-2020
+
+
+
+    
+      
+```{r}
+raw_df %>% count(rr, sort = TRUE )
+```
+ 
+ 
+**Create an appropraite plot to visualize the distribution of counts for this variable **
+```{r}
+raw_df %>%
+ggplot(aes(rr,colour=rr))+
+geom_bar()+
+  labs(title = 'Rail Road versus Non Rail Road projects')
+
+```
+</br>
+
+**Create an appropriate plot to visualize the distribution of proportions for this variable. **
+
+```{r}
+
+rr_distribution <- raw_df %>% group_by(rr) %>% summarise(count1 = n()) %>% mutate(p1 = count1/sum(count1))
+rr_distribution
+```
+
+**Sum of proportions**
+```{r}
+rr_distribution %>% summarise(Sum_p = sum(p1))
+```
+
+**Discuss any unusual observations for this variable ** </br>
+From the graph we can see that rr value of 0 (non rail road) has more number of projects compared to rr value of 1(rail road)
+
+**Discuss if there are too few/too many unique values ** </br>
+There are no much unique values present in non rail road or rail road category.
+
+
+
+# Bivariate Analysis
+
+
+```{r}
+raw_df$stations  <- as.integer(raw_df$stations)
+raw_df$rr  <- as.integer(raw_df$rr)
+```
+
+
+
+**Create an appropriate plot to visualize the relationship between the two variables.**
+
+```{r}
+ab <- raw_df %>%  filter(country == 'US')
+
+ggplot(ab,aes(length,cost_km_millions))+
+  geom_point()+
+  geom_smooth()+
+  ylim(c(0,5000))+
+  scale_y_log10()+
+  labs(x = "Length of the Transit Project", y = "Cost(millions)/km ", title = 'Relation between Cost(millions)/km and length of Transit Project')
+  
+```
+
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate.**
+
+</br>
+
+
+
+To understand these possible correlations, we will need to describe the form, direction, and strength of the observed relationship along the following dimensions:
+</br>
+- Form : The curve of the above plot is **Non - Linear** because there is variation is our trend curve.
+</br>
+- Direction : As the Length of the project increases, Cost(millions)/km decreases. So, there is **Negative** Direction in this relationship.
+</br>
+- Strength : Since here we are dealing with Numeric variables, We can use quantitative measures for measuring strength. Such as Correlation Coefficient.
+
+
+```{r}
+cor(ab$length,ab$cost_km_millions, method = 'spearman')
+```
+
+Since, the form of the observed relationship is Non-linear we have used Spearman correlation coefficient. The correlation between length and cost per km(millions) is negative(-0.53).We cannot say a strong correlation exist between these variables. 
+
+
+
+</br>
+**Explain what this relationship means in the context of the data.**</br>
+
+From the above relationship, we can say that as the length of the transit project increase, the cost(in millions)/ km decreases. However, there is lot of variations in the dataset.
+
+
+
+
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above.**
+</br>
+
+As the length of the transit project increases, the cost(in millions)/ km decreases, however, there is so much variability in the dataset, which also affecting the correlation of cost and length.The project cost varies alot. For example, when the length of the project is around 2.7 km , the Project's cost varies 700$ to 7000$.
+
+
+
+
+
+
+
+
+```{r}
+raw_df %>%  count(country, sort = TRUE )
+  
+```
+
+
+**Create an appropriate plot to visualize the relationship between the two variables.**
+
+
+```{r}
+
+raw_df %>% filter(country == c('CN','IN','TR','ES','FR','JP','DE','US','TW','IT', 'CA')) %>% 
+  ggplot(aes(cost_km_millions,country)) +
+  geom_boxplot(color = 'pink', alpha = 1/3)+
+  geom_jitter(color = 'red')+
+  scale_x_continuous(n.breaks = 15)+
+  labs(title = 'Transit Cost(millions)/km in Countries where maximum number of projects going on')
+
+```
+
+
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate. **
+
+Since we are trying to find the relationship between Nominal Categorical and Continuous numeric variables, we cannot find out Form, Direction and strength of the observed Relationship.
+
+
+
+
+
+</br>
+**Explain what this relationship means in the context of the data**
+ </br>
+From the above plot, we can see that The cost occurred in Transit projects per kilometer is very high in the United States. Around 50 % projects cost varies from approximately 600 to 1200. while the minimum cost of the project in US is around 350. 
+On the other hand, China has maximum number of projects, but the cost of the transit projects(per km) varies from approximately 100 to 310 millions.
+
+
+</br>
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above. **
+</br>
+
+
+```{r}
+a <- raw_df %>% filter(country == c('CN','IN','TR','ES','FR','JP','DE','TW','IT', 'CA'))
+q1 <-ggplot(a) +
+  geom_boxplot(aes(cost_km_millions))+
+  facet_wrap(~ country, ncol = 2)
+
+
+b <- raw_df %>% filter(country == c('ES','DE','IT', 'CA','US'))
+q2 <- ggplot(b) +
+  geom_boxplot(aes(cost_km_millions))+
+  facet_wrap(~ country, ncol= 2)
+
+
+q1 + labs(y = "Density ", title = 'Cost(millions)/km in Different countries')
+q2 + labs(y = "Density ", title = 'Cost(millions)/km in Different countries')
+
+
+```
+
+
+
+Out of the above 10 ten countries in which maximum number of projects are going on, we have created a facet, so that we can analyze each country individually, and now we can see  China (CN) is the only country in which some outliers present while in other countries there is very less variation in cost/km of projects except US, In US Cost is very high over other countries.
+
+
+
+
+  
+**Create an appropriate plot to visualize the relationship between the two variables.**</br>
+
+```{r}
+tn <- raw_df %>% filter(country == 'CN')
+
+ ggplot(tn, aes(x = tunnel, y = cost_km_millions)) +
+geom_point() +
+geom_smooth()+
+labs(x = "Tunnel", y = "Cost per km (millions)", title = "Cost per km by tunnel")+ ylim(c(0,400))+
+scale_y_log10()
+
+```
+
+
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate.**
+
+-The form: Linear
+-Direction: Negative
+-Strength: - For numerical variables we have to use quantitative measures(Correlation Coefficient) for measuring its strength.
+
+```{r}
+var(raw_df$tunnel , raw_df$cost_km_millions,na.rm = TRUE)
+```
+
+```{r}
+b <- na.omit(raw_df, tunnel,cost_km_millions)
+```
+
+```{r}
+cor(b$tunnel,b$cost_km_millions)
+```
+
+We found that that there is a linear relationship we have used pearson correlation coefficient. We don't find a strong correlation between variables tunnel completed in km to cost_km_million and we get (-0.058).
+
+**Explain what this relationship means in the context of the data.**
+
+The plot is based on Country is **China**. We observe we have a linear relationship as if the tunnel increases there is increase in cost/km. For the data set this means that the cost_km_million is affected by tunnel but not the stations. From the analysis we have seen that number of stations does not affect the cost in china.
+
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above.**
+
+There is not much variability as we see a linear relationship. and the correlation is also almost 0.
+
+
+
+
+
+
+**Create an appropriate plot to visualize the relationship between the two variables.**
+
+```{r}
+raw_df %>% filter(tunnel_per == 1,
+end_year <= 2020, country =="CN") %>%
+mutate(year = (year %/% 5) * 5) %>%
+ggplot(aes(year, cost_km_millions, group = year)) +
+geom_boxplot() +
+expand_limits(y = 0)+
+labs(y = "Cost / km (Real USD, Millions)",
+x = "Year",
+title = "Cost distribution / km in China")
+```
+
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate.**
+The form is from the box plot is observed as non-linear. The direction for cost/km from 2000 to 2010 cost/km is negative but wee see it going to positive after 2010.
+Strength - Qualitative - We see that the median for cost/km varies throughout years with cost/km variance at 250.74, however it tends to increase at specific year.
+Quantitative- Since we have one categorical and one numeric variable we cant establish the a
+quantitative strength as categorical variable( year) cannot be compared with cost.
+
+**Explain what this relationship means in the context of the data.**
+From the above boxplot we can see that the cost/km is related to the years. It is important as when we consider the data we can further see the inflation of local currency to USD for each different years. Since the data can be used to approximately understand the rate of inflation as of 2021.
+
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above.**
+The variability we noted above was between cost/km through years which we calculated to be 250.4536 dollars USD.We also see significant variance in 2010 since it has outliers. From the plot we can observe that the value of cost/km from year 2000 to 2010 had declined which was global but it started to increase after 2010.
+
+
+```{r}
+var(raw_df$year , raw_df$cost_km_millions,na.rm = TRUE)
+```
+
+
+
+
+**Create an appropriate plot to visualize the relationship between the two numeric variables.**
+
+we have considered length and stations as two numeric variables to analise and thebelow is the code chunk
+
+```{r}
+
+both_numerical <- raw_df1%>% ggplot(aes(stations,length)) + geom_point(colour = 'brown')+geom_smooth()+xlim(c(0,70)) +labs(title="number of stations across different length of the project",x= "stations", y="length of the project")
+both_numerical
+
+```
+
+
+
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate.**
+
+To understand these possible correlations, we will need to describe the form, direction, and strength of the observed relationship along the following dimensions: </br>
+- Form : Non - Linear </br>
+- Direction : positive </br>
+- Strength : Since here we are dealing with Numeric variables,We can use quantitative measures for measuring strength. Such as Correlation Coefficient. here the strength is of perfect positive correlation except for few outliers.
+
+```{r}
+cor(raw_df1$stations,raw_df1$length, method = 'spearman')
+
+```
+
+The calculated Spearman Correlation coefficient is also positive and is near to 1 which is highest possible.  </br>
+
+**Explain what this relationship means in the context of the data.**</br>
+
+From the above relationship,we can observe that there is a strong relationship between these two variables. as the stations increases,length of the project is also increasing. .
+
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above.**
+The association of the variables is found to be strong. therefore these variables have a strong positive linear relationship
+
+
+*Create an appropriate plot to visualize the relationship between the one numerical and one categorical variable.*
+We have considered city (which is categorical) and length (which is numerical) for visualizing.
+
+```{r}
+cat_num <- raw_df1  %>% filter(country =='IN') %>% ggplot(aes(length,city,colour = city))+geom_boxplot()+labs(title = 'Project length across different cities of India', x = 'length(in km)', y = 'cities')
+cat_num
+
+```
+
+
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate.**
+
+boxplots represents the ranges of values based on quartiles and display outliers that fall outside the whiskers.
+
+Since we are trying to find the relationship between Nominal Categorical and Continuous numeric variables, we cannot find out Form, Direction and strength of the observed Relationship.
+
+**Explain what this relationship means in the context of the data.**</br>
+From the above plot, we can see that The length of the projects are different for different cities of India. Around 50 % projects whose length varies from approximately 10 to 115km. while the minimum length can be seen for the project in Gurgaon in India which is around 8km. On the other hand,Delhi has maximum length, but the cost of the transit projects(per km) varies from approximately 100 to 310 millions.
+
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above.** </br>
+Projects whose 50% of length varies approximately from 10 to 115km. while the minimum length can be seen for the project in Gurgaon in India which is around 8km. On the other hand,Delhi has maximum length of projects that is around 160 km. Box plot gives Median & IQR of the data which is the good representation of the measure of centre and the spread. Lower whisker explains the bottom 25% and Upper whisker explains the top 25% of the data.
+
+
+
+      
+**Create an appropriate plot to visualize the relationship between the two variables. ** </br>
+
+```{r}
+numerical <- raw_df %>%
+mutate(full_Project_time = end_year - start_year, mid_project_compl_time = year-start_year) %>%
+filter(full_Project_time > 0)
+       
+ggplot(numerical, aes(y=mid_project_compl_time,x=full_Project_time))+
+geom_point(colour ="red") +geom_smooth() +
+labs(title = 'Mid completion review', x = 'Time assigned to complete full project(in Years)', y = 'Time taken for 50% completion of project(in Years)')+ylim(c(0,20))
+numerical
+```
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate. **
+
+</br>
+- Form : The curve of the above plot is **Linear** because there is no variations leading to curve.
+</br>
+- Direction : As the time taken to complete 50% completion of the project increases, Time assigned to complete increases. So, there is **Positive** Direction in this relationship.
+</br>
+- Strength : Since here we are dealing with Numeric variables, We can use quantitative measures for measuring strength. Such as Correlation Coefficient. We have found there is a correlation between full_project_time(end_year - start_year) and mid_project_compl_time (year-start_year).
+
+```{r}
+x<- numerical$full_Project_time
+y <- numerical$mid_project_compl_time
+
+```
+
+
+```{r}
+cor(x,y)
+```
+
+**Explain what this relationship means in the context of the data. **</br>
+The graphs shows 50% completion of the project with respect to assigned time period of the project.
+
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above. **
+</br>
+From the graph we can see that for projects with less than 5 years of assigned completion full year, the projects has taken less than half of the time to complete 50% of the project. From 7.5 years of assigned completion full year, the projects has taken almost half of the time assigned to complete 50% of the project
+
+
+
+
+
+```{r}
+raw_df %>% count(continent, sort = TRUE )
+```
+
+**Create an appropriate plot to visualize the relationship between the two variables. **
+
+```{r}
+
+not_railroad = raw_df %>% filter(rr=="0")
+not_railroad %>%
+ggplot(aes(x=continent, y=real_cost, color=continent))+
+geom_boxplot(outlier.color="white",alpha=0)+
+theme(legend.position="none")+
+geom_jitter(shape=16, position=position_jitter(0.2), alpha=0.7)+
+labs(subtitle="Real Cost(Millions) in different continents",x="Continents", y="Real cost in USD Millions" )
+
+```
+
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate.**
+
+Since we are trying to find the relationship between Nominal Categorical and Continuous numeric variables, we cannot find out Form, Direction and strength of the observed Relationship.
+
+
+</br>
+**Explain what this relationship means in the context of the data. </br>**
+From the graph of continents and real cost most of the projects are from Asia. We can see there are few outliers for Asia and Europe. The real cost is more for countries in Oceania and Africa.
+
+</br>
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above. **
+</br>
+
+From the graph we can see that real cost of Asia is below 62500 USD where as all other continents has real cost less than 25000.
+
+
+**create a plot to visualize the relationship between two variables.**
+
+We have considered ppp rate and real cost on x and axis respectively to visualize the relationship between real cost and ppp rate of the project and using the ggplot package scatter plot, we have created a visualization.
+
+```{r}
+
+both_numerical <- raw_df%>% ggplot(aes(ppp_rate,real_cost)) + geom_point(colour = 'brown')+geom_smooth()+labs(title="Relationship between real cost and ppp rate of the project",x= "ppp rate (in USD)", y="real_cost of the project")
+both_numerical
+```
+
+
+**Describe the form, direction, and strength of the observed relationship. Include both qualitative and quantitative measures, as appropriate.**
+
+To understand these possible correlations, we will need to describe the form, direction, and strength of the observed relationship along the following dimensions:
+</br> - Form : Non linear since real cost is not changing with respect to ppp rate
+</br> - Direction : Negative since slope there is a slight decrease along the progress of the curve.
+</br> - Strength : Since here we are dealing with Numeric variables, We can use quantitative measures for measuring strength. Such as Correlation Coefficient. here the strength is of linear few outliers.
+
+**Explain what this relationship means in the context of the data.**
+</br> There is a non linear negative coefficient of correlation between these two variables since ppp rate is having no impact on real cost.
+
+```{r}
+a <- na.omit(raw_df,real_cost)
+b <- na.omit(raw_df,ppp_rate)
+c <- cor(a$real_cost,b$ppp_rate,method = 'pearson')
+c
+```
+
+
+
+**Describe the variability that you observe in the plot and how that corresponds to the strength you calculated in #2 above.**
+</br> There is no association between these variables. Hence there is no variation observed. From the above calculated correlation, we can see that there is no strong correlation exist between real_cost and ppp_rate.    
+
+
+</br>
+</br>
+
+<em>**Contribution by Team Members**</em>
+
+**Anjana Padikkal Veetil**
+</br>Completed- 5 plots with error handling and review and answers
+
+**Prathap David Carlo**
+</br>Completed - 5 plot with error handling ,definition and answers
+
+**Rahul Dalal**
+</br> Helped across 4 plots
+
+**Saharsh Sinha**
+</br> Completed 5 plots. Wrote answers to the summary questions and error handling. Code review and edit.
+
+**Rohit Rohit**
+</br>Completed 6 plots, answers to questions , spell check, final , error handling and review for knitting
+</br>
+
+### References to any external sources used:
+We have analysed the codes from the below references and examined on what context they are used & what are all the functions supported those codes. With those details, it was helpful for us to build this project <br>
+http://www.cookbook-r.com/Graphs/
+http://r-statistics.co/Top50-Ggplot2-Visualizations-MasterList-R-Code.html
+http://www.cookbook-r.com/Graphs/Scatterplots_(ggplot2)/
+</br>
+
+

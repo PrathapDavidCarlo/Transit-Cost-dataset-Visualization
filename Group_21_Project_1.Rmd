@@ -1,0 +1,261 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+```
+
+
+
+```{r}
+library(tidyverse)
+library(readr)
+library(janitor)
+library(gganimate)
+```
+
+
+
+```{r}
+transit_cost <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-05/transit_cost.csv')
+
+```
+
+
+## Cleaning code-Provided By the Creators
+```{r}
+transit_cost <-transit_cost %>%
+  mutate(start_year = as.integer(start_year),
+         end_year = as.integer(end_year),
+         tunnel_per = parse_number(tunnel_per)/100,
+         real_cost = as.numeric(real_cost))
+
+raw_df <- transit_cost %>% 
+  janitor::clean_names() %>% 
+  filter(real_cost != "MAX")
+
+raw_df %>% 
+  arrange(desc(cost_km_millions))
+```
+
+
+
+### Project Time Calculation
+```{r}
+Project_time <- as.numeric(raw_df$end_year) - as.numeric(raw_df$start_year)
+raw_df$project_time <- Project_time
+```
+
+</br>
+**We have used the variables end_year and start_year to calculate the total time taken by the project to complete as a variable -Project_time.** 
+ 
+
+
+```{r}
+
+projects <- ggplot(raw_df,aes(project_time))+
+  geom_histogram(binwidth = 0.5, fill = 'bisque3')
+
+projects <- projects + labs(title = 'Completion time of projects', x = 'Completion time( in years)', y = 'Number of projects', caption = "Data source: Transit_Cost") +
+  scale_x_continuous(breaks = seq(1, 30, by = 1))+
+   stat_bin(aes(y=..count..,label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-.5)+
+  theme_minimal()
+projects
+
+```
+</br>
+**The above graph illustrates how many years a project takes to complete. The x_axis representing the completion time of the projects (in years) and the y_axis shows the Number of projects. We can clearly see that almost 65% of projects' completion time vary from 3 years to 6 years. There are around 106 projects whose completion time is 5 years. However, only four projects that took less than 4 years to complete and 6 projects took more than 16 years to complete.**
+
+
+```{r}
+ggplot(raw_df,aes(cost_km_millions))+
+  geom_boxplot()+
+  scale_x_continuous(breaks = seq(0, 4000, by = 250))+
+  labs(title = 'Cost per Km of transit projects in millions of USD', x = 'Cost/Km in Millions',caption = "Data source: Transit_Cost")+
+  theme_dark()
+```
+</br>
+
+
+**The above box plot has been created, for analyzing the Cost/km of transit projects in millions of USD ( cost_km_millions). We can see that 50 percentile projects' cost is from 125 to 250. Approximately 75 % of the cost of the project is under 250 million per km. In addition, 6 projects cost higher than 1250 million per km. Out of them, one project cost is around 4000 million/km.**
+
+
+
+```{r}
+ggplot(raw_df)+
+  geom_bar(aes(country,  color = country), width=0.8)+
+  coord_flip()+
+  labs(title = 'Number of projects started in different countries', x = 'Count', y = 'Country',caption = "Data source: Transit_Cost")+
+  theme_bw()+
+  theme(axis.text.y = element_text(size = 5))
+```
+</br>
+It can be seen that **CN** is the only country in which more than 250 Transit_projects' started while, approximately 25 projects accounted for 'IN' Country. All other countries' projects figure is less than 25.
+
+###Filtering Countries and subsetting China
+```{r}
+country_CN <-raw_df %>%
+  filter(country == 'CN')  
+```
+
+
+
+```{r}
+
+
+ggplot(country_CN)+
+  geom_bar(aes(city,label = city),fill = 'firebrick4')+
+  labs(title = 'Number of projects in different cities of CN', x = 'Count', y = 'City',caption = "Data source: Transit_Cost")+
+  coord_flip()+
+  theme_bw()
+```
+</br>
+**Since 'CN'- China is the only country where more than 250 transit_projects has been going on. For better understanding, we have seen the cities of 'CN' country and found that Shanghai, Wuhan and Beijing are the countries where more than 20 transit projects have been started whereas, Wenzhou, Taiyuan, and Lanzhou accounted for at least around 3 projects.**
+
+
+### Creating Country List to filter out top 10 countries with highest number of projects.
+```{r}
+country_list <-  raw_df %>%
+  filter(end_year <= 2020) %>% 
+  mutate(time_diff = end_year - start_year) %>%
+  count(country, sort = T)%>%
+  top_n(10) %>%
+  pull(country)
+```
+
+
+
+```{r}
+raw_df %>%
+  filter(country %in% country_list) %>%
+  mutate(country = reorder(country, -real_cost)) %>%
+  ggplot(aes(country, real_cost, colour = country)) +
+  geom_segment(aes(xend=country, yend=0))+
+  geom_point( size=2, color="orange") +
+  coord_flip() +
+  theme_bw() +
+  xlab("")+
+  labs(title = "Project costs for top 10 countries with high number of projects.",
+       x = "Country",
+       y = "Real cost in Millions of USD",caption = "Data source: Transit_Cost")+
+  theme(plot.title.position = "plot",
+        plot.title = element_text(hjust = 0.5))
+```
+</br>
+**This plot depicts the real cost in millions( USD) for the top 10 countries having a maximum number of projects. The x-axis has a real_cost in millions (USD) and the y-axis has the top 10 countries with the highest number of projects.From the plot, we can see that FR(France) has to spend a maximum amount of cost that should be more than 45000 USD, followed by SA(South Africa) and IN(India) spending around 38000 USD and 32000 USD respectively.**
+
+
+
+
+```{r}
+raw_df %>%
+  ggplot(aes(x=length,y=real_cost,colour=stations,size=tunnel,na.rm=TRUE))+
+  geom_point()+
+  geom_smooth()+
+  labs(title = "Plot showing the relation between Length, Stations and Tunnel with Real cost.",
+       x = 'Length',
+       y = 'Real Cost in Millions USD',caption = "Data source: Transit_Cost")+
+  theme(plot.title.position = "plot",
+        plot.title = element_text(hjust = 0.5))
+```
+</br>
+The plot shows the relationship between length, stations and tunnel with real cost. The x-axis has length whereas, the y-axis shows the real cost in millions(USD).
+From the plot, we can infer the bellow points
+* As the length increases real cost also increases 
+* As the number of stations increases real cost increases
+* As the number of tunnels increases real cost increases
+
+Length, stations and tunnels are directly proportional to the real cost.
+
+
+
+```{r}
+raw_df %>%
+  filter(country %in% country_list) %>%
+  ggplot(aes(x=cost,y=real_cost,colour=ppp_rate,na.rm=TRUE))+
+  geom_point()+
+  xlim(0,10000)+
+  ylim(0,10000)+
+  labs(title = "Plot showing the relation between Cost and Real cost in USD with  PPP rate.",
+       x = 'Cost in country currency',
+       y = 'Real cost in USD',caption = "Data source: Transit_Cost")+
+  theme(plot.title.position = "plot",
+        plot.title = element_text(hjust = 0.5))
+```
+</br>
+**The plot shows the relation between cost, PPP rate and real cost.We can see that countries with higher PPP rate have real cost more than the cost in their currency whereas, countries with less PPP rate has real cost less than their currency cost.**
+
+
+### Filtering China(CN) as it has highest number of Projects
+```{r}
+Country_China <- raw_df %>% 
+filter(country == "CN")
+```
+
+
+### Filtering Cities in China 
+```{r}
+China_cities <- Country_China %>%
+filter(city %in% c("Xi'an", "Wuhan", "Shanghai","Beijing", "Shenzhen","Changsha"))
+```
+
+
+
+
+```{r}
+Completion_data <- ggplot( data = China_cities) + geom_point(mapping = aes(project_time,length,colour=source1,size=stations)) +geom_smooth(mapping = aes(project_time,length))+
+    facet_wrap( ~city)
+Completion_data <- Completion_data + 
+  labs(title = 'Project completion time for 6 cities of China', x = 'Completion time( in years)',y ='Length of the proposed projects(in Km )',caption = "Data source: Transit_Cost") +
+  scale_colour_discrete(name  = "Data collected from sources") 
+Completion_data
+```
+</br>
+This plot explains the relationship between the length of the Infrastructure Project and the years took to complete in 6 cities of China that are: Xi'an, Wuhan, Shanghai, Beijing, Shenzhen, Changsha. 
+
+<br/> 2.Length on the y-axis refers to the proposed project distance expressed in kilometres.
+
+<br/> 3.Project time on the x-axis refers to the number of years taken to complete the project from the start date to the end date and expressed in years.
+
+<br/> 4.The Graph mainly explains the trend of the project progress for all cities, as from the smooth line, we can observe that completion time is increasing when the length of the project increases.
+
+<br/> 5.The size of the scatter plot also refers to the number of stations that the particular project has and it is measured on a scale of 10 to 30 stations dividing equally between 3 sizes.
+
+<br/> 6.We can also note with the help of coloured plots that where these data are sourced/collected from. 
+
+<br/> 7.It is evident that city Xi'an and Changsha has the less number of projects and all those projects are completed in less than 5 years.
+
+<br/> 8.China has planned to build more infrastructure projects in cities like Beijing and Shanghai when compared to the rest of the four cities highlighted in this plot.
+
+
+
+###Filtering top 6 Countries for calculating real cost for the projects 
+```{r}
+country_list_five <- transit_cost %>% 
+  mutate(time_diff = end_year - start_year) %>% count(country, sort = T )%>% 
+  top_n(6) %>% pull(country) 
+```
+
+
+###Forcasting Real cost in USD till year 2030.
+```{r}
+country_plot<- transit_cost %>% 
+  filter(country %in% country_list_five) %>%  
+  ggplot(aes(x= end_year, y= real_cost, color=country)) +  
+    geom_point()+ facet_wrap(~country, nrow=3)+
+    labs(title = "Real cost by end of the project of top 6 countries with maximum number of projects.",
+       x = 'End year(year)',
+       y = 'Real cost in USD',
+       caption = "Data source: Transit_Cost")
+```
+
+
+
+```{r}
+animate_plot <- country_plot + geom_point(aes(group = seq_along(year))) +   transition_reveal(year)
+animate_plot
+```
+
